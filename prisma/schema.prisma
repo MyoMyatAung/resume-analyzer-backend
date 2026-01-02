@@ -1,0 +1,98 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserProvider {
+  LOCAL
+  GOOGLE
+  GITHUB
+}
+
+model User {
+  id              String         @id @default(uuid())
+  email           String         @unique
+  password        String?
+  firstName       String
+  lastName        String
+  provider        UserProvider   @default(LOCAL)
+  providerId      String?
+  isVerified      Boolean        @default(false)
+  verificationToken String?
+  resetPasswordToken String?
+  resetPasswordExpires DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  resumes         Resume[]
+  jobs            JobDescription[]
+  analysisResults AnalysisResult[]
+
+  @@index([email])
+}
+
+model Resume {
+  id              String         @id @default(uuid())
+  userId          String
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fileName        String
+  fileUrl         String
+  fileKey         String
+  fileSize        Int
+  mimeType        String
+  extractedText   String?        @db.Text
+  version         Int            @default(1)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  analyses        AnalysisResult[]
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model JobDescription {
+  id              String         @id @default(uuid())
+  userId          String
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title           String
+  company         String
+  description     String         @db.Text
+  requirements    String?        @db.Text
+  location        String?
+  salary          String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  analyses        AnalysisResult[]
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model AnalysisResult {
+  id              String         @id @default(uuid())
+  userId          String
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resumeId        String
+  resume          Resume         @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+  jobId           String
+  job             JobDescription @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  
+  matchScore      Float
+  matchedSkills   String[]       @default([])
+  missingSkills   String[]       @default([])
+  experienceMatch String?
+  recommendations String         @db.Text
+  summary         String         @db.Text
+  
+  createdAt       DateTime       @default(now())
+
+  @@index([userId])
+  @@index([resumeId])
+  @@index([jobId])
+}
