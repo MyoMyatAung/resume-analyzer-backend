@@ -91,11 +91,11 @@ export class AuthController {
   @ApiOperation({ summary: 'Google OAuth callback' })
   async googleCallback(@Query('code') code: string, @Res() res: Response) {
     try {
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
       const tokenResponse = await this.exchangeGoogleCode(code);
-      res.redirect(`${frontendUrl}/auth/callback?token=${tokenResponse.accessToken}`);
+      res.redirect(`${frontendUrl}/auth/callback?token=${tokenResponse.accessToken}&refreshToken=${tokenResponse.refreshToken}`);
     } catch (error) {
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
       res.redirect(`${frontendUrl}/auth/error`);
     }
   }
@@ -112,11 +112,11 @@ export class AuthController {
   @ApiOperation({ summary: 'GitHub OAuth callback' })
   async githubCallback(@Query('code') code: string, @Res() res: Response) {
     try {
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
       const tokenResponse = await this.exchangeGitHubCode(code);
-      res.redirect(`${frontendUrl}/auth/callback?token=${tokenResponse.accessToken}`);
+      res.redirect(`${frontendUrl}/auth/callback?token=${tokenResponse.accessToken}&refreshToken=${tokenResponse.refreshToken}`);
     } catch (error) {
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
       res.redirect(`${frontendUrl}/auth/error`);
     }
   }

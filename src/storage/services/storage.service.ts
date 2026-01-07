@@ -33,15 +33,12 @@ export class StorageService {
       throw new BadRequestException('No file provided');
     }
 
-    const allowedMimeTypes = [
-      'application/pdf',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    ];
+    // Only allow PDF files
+    const allowedMimeTypes = ['application/pdf'];
 
     if (!allowedMimeTypes.includes(file.mimetype)) {
       throw new BadRequestException(
-        'Invalid file type. Only PDF and DOCX files are allowed',
+        'Invalid file type. Only PDF files are allowed',
       );
     }
 
@@ -50,15 +47,14 @@ export class StorageService {
       throw new BadRequestException('File size exceeds 5MB limit');
     }
 
-    const fileExtension = this.getFileExtension(file.originalname);
-    const fileName = `${uuidv4()}.${fileExtension}`;
+    const fileName = `${uuidv4()}.pdf`;
     const key = `resumes/${userId}/${fileName}`;
 
     const command = new PutObjectCommand({
       Bucket: this.bucket,
       Key: key,
       Body: file.buffer,
-      ContentType: file.mimetype,
+      ContentType: 'application/pdf',
       ContentLength: file.size,
     });
 
@@ -101,10 +97,5 @@ export class StorageService {
     }
 
     return Buffer.concat(chunks);
-  }
-
-  private getFileExtension(fileName: string): string {
-    const parts = fileName.split('.');
-    return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : 'pdf';
   }
 }

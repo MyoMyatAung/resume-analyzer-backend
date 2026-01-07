@@ -17,11 +17,6 @@ export class CreateJobDescriptionDto {
   @IsNotEmpty()
   description: string;
 
-  @ApiPropertyOptional({ example: '5+ years experience, TypeScript, React' })
-  @IsString()
-  @IsNotEmpty()
-  @IsOptional()
-  requirements?: string;
 
   @ApiPropertyOptional({ example: 'San Francisco, CA' })
   @IsString()

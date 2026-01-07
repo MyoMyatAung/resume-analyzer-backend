@@ -35,11 +35,6 @@
       "key": "jobId",
       "value": "",
       "type": "string"
-    },
-    {
-      "key": "analysisId",
-      "value": "",
-      "type": "string"
     }
   ],
   "auth": {
@@ -567,34 +562,6 @@
       "name": "Analysis",
       "item": [
         {
-          "name": "Analyze Resume",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n    \"resumeId\": \"{{resumeId}}\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/analysis/analyze",
-              "host": ["{{baseUrl}}"],
-              "path": ["analysis", "analyze"]
-            },
-            "description": "Analyze and extract text from a resume"
-          },
-          "response": []
-        },
-        {
           "name": "Match Resume to Job",
           "request": {
             "method": "POST",
@@ -618,47 +585,35 @@
               "host": ["{{baseUrl}}"],
               "path": ["analysis", "match"]
             },
-            "description": "Match resume to job description and get analysis"
+            "description": "Match resume with job description - Returns analysis directly without storing"
           },
           "response": []
         },
         {
-          "name": "Get Analysis History",
+          "name": "Analyze Resume Quality",
           "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/analysis/history?page=1&limit=10",
-              "host": ["{{baseUrl}}"],
-              "path": ["analysis", "history"],
-              "query": [
-                {
-                  "key": "page",
-                  "value": "1",
-                  "description": "Page number"
-                },
-                {
-                  "key": "limit",
-                  "value": "10",
-                  "description": "Items per page"
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"resumeId\": \"{{resumeId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
                 }
-              ]
+              }
             },
-            "description": "Get analysis history with pagination"
-          },
-          "response": []
-        },
-        {
-          "name": "Get Analysis Result",
-          "request": {
-            "method": "GET",
-            "header": [],
             "url": {
-              "raw": "{{baseUrl}}/analysis/{{analysisId}}",
+              "raw": "{{baseUrl}}/analysis/quality",
               "host": ["{{baseUrl}}"],
-              "path": ["analysis", "{{analysisId}}"]
+              "path": ["analysis", "quality"]
             },
-            "description": "Get specific analysis result by ID"
+            "description": "Analyze resume quality (Skill Coverage, Experience Relevance, ATS Compatibility, Clarity & Structure) - Returns analysis directly without storing"
           },
           "response": []
         }

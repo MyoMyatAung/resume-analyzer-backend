@@ -19,6 +19,7 @@
 ## Testing Workflow
 
 ### Step 1: Register a New User
+
 ```
 POST /api/auth/register
 Body: {
@@ -30,6 +31,7 @@ Body: {
 ```
 
 ### Step 2: Login
+
 ```
 POST /api/auth/login
 Body: {
@@ -39,16 +41,19 @@ Body: {
 ```
 
 **After login, the response will include:**
+
 - `accessToken` - Copy this to the `accessToken` variable
 - `refreshToken` - Copy this to the `refreshToken` variable
 
 ### Step 3: Set Access Token
+
 1. Click the environment dropdown
 2. Click **Edit** next to "Resume Analyzer - Development"
 3. Set `accessToken` to the token from login response
 4. Click **Save**
 
 ### Step 4: Upload a Resume
+
 ```
 POST /api/resumes/upload
 Body: form-data
@@ -58,6 +63,7 @@ Key: file (select a PDF or DOCX file)
 **After upload, copy the `id` from response to `resumeId` variable**
 
 ### Step 5: Create a Job Description
+
 ```
 POST /api/jobs
 Body: {
@@ -73,14 +79,16 @@ Body: {
 **After creation, copy the `id` from response to `jobId` variable**
 
 ### Step 6: Analyze Resume
+
 ```
-POST /api/analysis/analyze
+POST /api/analysis/quality
 Body: {
     "resumeId": "{{resumeId}}"
 }
 ```
 
 ### Step 7: Match Resume to Job
+
 ```
 POST /api/analysis/match
 Body: {
@@ -90,6 +98,7 @@ Body: {
 ```
 
 **Response includes:**
+
 - `matchScore` - Percentage match (0-100)
 - `matchedSkills` - Skills that match
 - `missingSkills` - Skills missing from resume
@@ -99,15 +108,15 @@ Body: {
 
 ## Environment Variables
 
-| Variable | Description | How to Set |
-|----------|-------------|------------|
-| `baseUrl` | API base URL | Edit environment |
-| `accessToken` | JWT access token | From login response |
-| `refreshToken` | JWT refresh token | From login response |
-| `userId` | Current user ID | From profile response |
-| `resumeId` | Uploaded resume ID | From upload response |
-| `jobId` | Created job ID | From job creation response |
-| `analysisId` | Analysis result ID | From analysis response |
+| Variable       | Description        | How to Set                 |
+| -------------- | ------------------ | -------------------------- |
+| `baseUrl`      | API base URL       | Edit environment           |
+| `accessToken`  | JWT access token   | From login response        |
+| `refreshToken` | JWT refresh token  | From login response        |
+| `userId`       | Current user ID    | From profile response      |
+| `resumeId`     | Uploaded resume ID | From upload response       |
+| `jobId`        | Created job ID     | From job creation response |
+| `analysisId`   | Analysis result ID | From analysis response     |
 
 ## Collection Structure
 
@@ -141,10 +150,8 @@ Resume Analyzer API
 │   ├── Update Job Description
 │   └── Delete Job Description
 └── Analysis
-    ├── Analyze Resume
     ├── Match Resume to Job
-    ├── Get Analysis History
-    └── Get Analysis Result
+    └── Analyze Resume Quality
 ```
 
 ## Tips

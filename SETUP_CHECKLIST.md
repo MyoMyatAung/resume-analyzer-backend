@@ -1,6 +1,7 @@
 # Backend Setup Verification Checklist
 
 ## 1. Project Structure Verification
+
 ```
 resume-analyzer-backend/
 ├── src/
@@ -66,6 +67,7 @@ resume-analyzer-backend/
 ## 2. Import Path Verification
 
 ### Correct Patterns:
+
 - `../../config/` - From submodules to config
 - `../../email/` - From submodules to email
 - `../../storage/` - From submodules to storage
@@ -88,7 +90,7 @@ AWS_ACCESS_KEY_ID=your-key
 AWS_SECRET_ACCESS_KEY=your-secret
 AWS_REGION=us-east-1
 AWS_S3_BUCKET=your-bucket
-OPENAI_API_KEY=your-key
+GEMINI_API_KEY=your-key
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=your-email
@@ -99,8 +101,10 @@ EMAIL_FROM=noreply@example.com
 NODE_ENV=development
 PORT=3000
 FRONTEND_URL=http://localhost:3001
-JWT_EXPIRATION=3600
+JWT_EXPIRATION=86400
 JWT_REFRESH_EXPIRATION=604800
+THROTTLE_TTL=60
+THROTTLE_LIMIT=100
 ```
 
 ## 4. Setup Commands (Run in Order)
@@ -129,6 +133,7 @@ npm run start:dev
 ## 5. API Endpoints
 
 ### Auth
+
 - `POST /api/auth/register` - Register
 - `POST /api/auth/login` - Login
 - `POST /api/auth/refresh` - Refresh token
@@ -137,12 +142,14 @@ npm run start:dev
 - `GET /api/auth/verify-email/:token` - Verify email
 
 ### Users
+
 - `GET /api/users/profile` - Get profile
 - `PATCH /api/users/profile` - Update profile
 - `PATCH /api/users/password` - Change password
 - `DELETE /api/users/account` - Delete account
 
 ### Resumes
+
 - `POST /api/resumes/upload` - Upload resume (5MB max, PDF/DOCX)
 - `GET /api/resumes` - List resumes
 - `GET /api/resumes/:id` - Get details
@@ -150,6 +157,7 @@ npm run start:dev
 - `DELETE /api/resumes/:id` - Delete resume
 
 ### Jobs
+
 - `POST /api/jobs` - Create job
 - `GET /api/jobs` - List jobs
 - `GET /api/jobs/:id` - Get details
@@ -157,14 +165,14 @@ npm run start:dev
 - `DELETE /api/jobs/:id` - Delete job
 
 ### Analysis
-- `POST /api/analysis/analyze` - Analyze resume
+
 - `POST /api/analysis/match` - Match resume to job
-- `GET /api/analysis/history` - Get history
-- `GET /api/analysis/:id` - Get result
+- `POST /api/analysis/quality` - Analyze resume quality
 
 ## 6. Testing the API
 
 After starting the server:
+
 1. Open http://localhost:3000/api/docs
 2. Use Swagger UI to test endpoints
 3. First register a user: `POST /api/auth/register`
@@ -174,6 +182,7 @@ After starting the server:
 ## 7. Common Issues
 
 ### Issue: TypeScript errors
+
 ```bash
 # Ensure TypeScript is installed
 npm install typescript@5.1.3 --save-dev
@@ -183,6 +192,7 @@ npx prisma generate
 ```
 
 ### Issue: Database connection
+
 ```bash
 # Check PostgreSQL is running
 # Verify DATABASE_URL is correct in .env
@@ -191,15 +201,17 @@ npx prisma db push
 ```
 
 ### Issue: AWS S3 upload fails
+
 ```bash
 # Ensure bucket exists
 # Verify AWS credentials have S3 permissions
 # Check bucket region matches AWS_REGION
 ```
 
-### Issue: OpenAI API errors
+### Issue: Gemini API errors
+
 ```bash
 # Verify API key is correct
 # Check account has credits
-# Ensure model gpt-3.5-turbo is available
+# Ensure model gemini-2.5-flash is available
 ```

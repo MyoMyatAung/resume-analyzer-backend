@@ -62,7 +62,6 @@ model JobDescription {
   title           String
   company         String
   description     String         @db.Text
-  requirements    String?        @db.Text
   location        String?
   salary          String?
   createdAt       DateTime       @default(now())

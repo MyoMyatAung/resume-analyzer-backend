@@ -1,57 +1,18 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../config/prisma.service';
 import { OpenAIService } from './openai.service';
 import { StorageService } from '../../storage/services/storage.service';
-import { EmailService } from '../../email/services/email.service';
 import { AnalysisResult } from './openai.service';
 
 @Injectable()
 export class AnalysisService {
+  private readonly logger = new Logger(AnalysisService.name);
+
   constructor(
     private prisma: PrismaService,
     private openaiService: OpenAIService,
     private storageService: StorageService,
-    private emailService: EmailService,
   ) {}
-
-  async analyzeResume(userId: string, resumeId: string) {
-    const resume = await this.prisma.resume.findUnique({
-      where: { id: resumeId },
-    });
-
-    if (!resume) {
-      throw new NotFoundException('Resume not found');
-    }
-
-    if (resume.userId !== userId) {
-      throw new ForbiddenException('Not authorized to access this resume');
-    }
-
-    if (resume.extractedText) {
-      return {
-        id: resume.id,
-        extractedText: resume.extractedText,
-        alreadyAnalyzed: true,
-      };
-    }
-
-    const fileContent = await this.storageService.getFile(resume.fileKey);
-    const extractedText = await this.openaiService.extractTextFromResume(
-      fileContent,
-      resume.mimeType,
-    );
-
-    const analyzedResume = await this.prisma.resume.update({
-      where: { id: resumeId },
-      data: { extractedText },
-    });
-
-    return {
-      id: analyzedResume.id,
-      extractedText,
-      alreadyAnalyzed: false,
-    };
-  }
 
   async matchResumeToJob(
     userId: string,
@@ -75,116 +36,101 @@ export class AnalysisService {
       throw new ForbiddenException('Not authorized to access these resources');
     }
 
+    this.logger.log(`Matching resume ${resumeId} to job ${jobId}`);
+
     let resumeText = resume.extractedText;
-    if (!resumeText) {
-      const fileContent = await this.storageService.getFile(resume.fileKey);
-      resumeText = await this.openaiService.extractTextFromResume(
-        fileContent,
-        resume.mimeType,
-      );
-      await this.prisma.resume.update({
-        where: { id: resumeId },
-        data: { extractedText: resumeText },
-      });
+    if (!resumeText || resumeText.length < 50) {
+      try {
+        const fileContent = await this.storageService.getFile(resume.fileKey);
+        resumeText = await this.openaiService.extractTextFromResume(
+          fileContent,
+          resume.mimeType,
+        );
+        
+        if (resumeText && resumeText.length > 50) {
+          await this.prisma.resume.update({
+            where: { id: resumeId },
+            data: { extractedText: resumeText },
+          });
+        }
+      } catch (error: any) {
+        this.logger.warn(`Could not extract text from resume: ${error.message}`);
+      }
     }
 
-    const jobText = `${job.title} at ${job.company}\n\n${job.description}\n\nRequirements: ${job.requirements || 'Not specified'}`;
+    if (!resumeText || resumeText.length < 50) {
+      throw new Error('Unable to extract text from resume. Please upload a text-based PDF file.');
+    }
+
+    const jobText = `${job.title} at ${job.company}\n\n${job.description}`;
 
     const analysisResult: AnalysisResult = await this.openaiService.matchResumeToJob(
       resumeText,
       jobText,
     );
 
-    const result = await this.prisma.analysisResult.create({
-      data: {
-        userId,
-        resumeId,
-        jobId,
-        matchScore: analysisResult.matchScore,
-        matchedSkills: analysisResult.matchedSkills,
-        missingSkills: analysisResult.missingSkills,
-        experienceMatch: analysisResult.experienceMatch,
-        recommendations: analysisResult.recommendations,
-        summary: analysisResult.summary,
-      },
-      include: {
-        resume: {
-          select: { id: true, fileName: true },
-        },
-        job: {
-          select: { id: true, title: true, company: true },
-        },
-      },
-    });
-
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (user) {
-      await this.emailService.sendAnalysisCompleteEmail(
-        user,
-        resume.fileName,
-        Math.round(analysisResult.matchScore),
-      );
-    }
-
-    return result;
-  }
-
-  async getAnalysisHistory(userId: string, page = 1, limit = 10) {
-    const skip = (page - 1) * limit;
-
-    const [results, total] = await Promise.all([
-      this.prisma.analysisResult.findMany({
-        where: { userId },
-        skip,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-        include: {
-          resume: {
-            select: { id: true, fileName: true },
-          },
-          job: {
-            select: { id: true, title: true, company: true },
-          },
-        },
-      }),
-      this.prisma.analysisResult.count({ where: { userId } }),
-    ]);
-
     return {
-      data: results,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
+      resumeId: resume.id,
+      fileName: resume.fileName,
+      jobId: job.id,
+      jobTitle: job.title,
+      company: job.company,
+      matchScore: analysisResult.matchScore,
+      matchedSkills: analysisResult.matchedSkills,
+      missingSkills: analysisResult.missingSkills,
+      experienceMatch: analysisResult.experienceMatch,
+      recommendations: analysisResult.recommendations,
+      summary: analysisResult.summary,
+      quality: analysisResult.resumeQuality,
+      gaps: analysisResult.gapDetection,
+      suggestions: analysisResult.suggestions,
     };
   }
 
-  async getAnalysisResult(userId: string, analysisId: string) {
-    const result = await this.prisma.analysisResult.findUnique({
-      where: { id: analysisId },
-      include: {
-        resume: {
-          select: { id: true, fileName: true, extractedText: true },
-        },
-        job: {
-          select: { id: true, title: true, company: true, description: true },
-        },
-      },
+  async analyzeResumeQuality(userId: string, resumeId: string) {
+    const resume = await this.prisma.resume.findUnique({
+      where: { id: resumeId },
     });
 
-    if (!result) {
-      throw new NotFoundException('Analysis result not found');
+    if (!resume) {
+      throw new NotFoundException('Resume not found');
     }
 
-    if (result.userId !== userId) {
-      throw new ForbiddenException('Not authorized to access this analysis');
+    if (resume.userId !== userId) {
+      throw new ForbiddenException('Not authorized to access this resume');
     }
 
-    return result;
+    this.logger.log(`Analyzing resume quality ${resumeId}, file: ${resume.fileName}`);
+
+    let resumeText = resume.extractedText;
+    if (!resumeText || resumeText.length < 50) {
+      try {
+        const fileContent = await this.storageService.getFile(resume.fileKey);
+        resumeText = await this.openaiService.extractTextFromResume(
+          fileContent,
+          resume.mimeType,
+        );
+        
+        if (resumeText && resumeText.length > 50) {
+          await this.prisma.resume.update({
+            where: { id: resumeId },
+            data: { extractedText: resumeText },
+          });
+        }
+      } catch (error: any) {
+        this.logger.warn(`Could not extract text from resume: ${error.message}`);
+        throw new Error(`Failed to extract text from resume: ${error.message}`);
+      }
+    }
+
+    const qualityAnalysis = await this.openaiService.analyzeResumeQuality(resumeText);
+
+    return {
+      resumeId: resume.id,
+      fileName: resume.fileName,
+      quality: qualityAnalysis.quality,
+      gaps: qualityAnalysis.gaps,
+      suggestions: qualityAnalysis.suggestions,
+    };
   }
 }

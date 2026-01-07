@@ -4,11 +4,10 @@ import {
   Get,
   Body,
   Param,
-  Query,
   UseGuards,
   ParseUUIDPipe,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AnalysisService } from '../services/analysis.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -20,17 +19,8 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 export class AnalysisController {
   constructor(private analysisService: AnalysisService) {}
 
-  @Post('analyze')
-  @ApiOperation({ summary: 'Analyze and extract text from a resume' })
-  async analyzeResume(
-    @CurrentUser('id') userId: string,
-    @Body('resumeId') resumeId: string,
-  ) {
-    return this.analysisService.analyzeResume(userId, resumeId);
-  }
-
   @Post('match')
-  @ApiOperation({ summary: 'Match resume with job description' })
+  @ApiOperation({ summary: 'Match resume with job description and get analysis' })
   async matchResumeToJob(
     @CurrentUser('id') userId: string,
     @Body() body: { resumeId: string; jobId: string },
@@ -42,24 +32,12 @@ export class AnalysisController {
     );
   }
 
-  @Get('history')
-  @ApiOperation({ summary: 'Get analysis history' })
-  @ApiQuery({ name: 'page', required: false, type: Number })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
-  async getHistory(
+  @Post('quality')
+  @ApiOperation({ summary: 'Analyze resume quality (Skill Coverage, Experience Relevance, ATS Compatibility, Clarity & Structure)' })
+  async analyzeResumeQuality(
     @CurrentUser('id') userId: string,
-    @Query('page') page?: number,
-    @Query('limit') limit?: number,
+    @Body('resumeId') resumeId: string,
   ) {
-    return this.analysisService.getAnalysisHistory(userId, page || 1, limit || 10);
-  }
-
-  @Get(':id')
-  @ApiOperation({ summary: 'Get specific analysis result' })
-  async getAnalysisResult(
-    @CurrentUser('id') userId: string,
-    @Param('id', ParseUUIDPipe) analysisId: string,
-  ) {
-    return this.analysisService.getAnalysisResult(userId, analysisId);
+    return this.analysisService.analyzeResumeQuality(userId, resumeId);
   }
 }

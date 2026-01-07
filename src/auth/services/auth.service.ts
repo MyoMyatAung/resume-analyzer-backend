@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, ConflictException, BadRequestException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, BadRequestException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../config/prisma.service';
@@ -164,7 +164,7 @@ export class AuthService {
       const tokens = await this.generateTokens(user);
 
       return tokens;
-    } catch {
+    } catch (error: any) {
       throw new UnauthorizedException('Invalid refresh token');
     }
   }
@@ -232,15 +232,22 @@ export class AuthService {
   }
 
   async generateTokens(user: any) {
+    const logger = new Logger(AuthService.name);
     const payload = { sub: user.id, email: user.email };
 
+    const accessExpiresIn = parseInt(this.configService.get('JWT_EXPIRATION', '3600'), 10);
+    const refreshExpiresIn = parseInt(this.configService.get('JWT_REFRESH_EXPIRATION', '604800'), 10);
+
+    logger.log(`Generating tokens with access expiresIn: ${accessExpiresIn}s (${accessExpiresIn / 3600} hours)`);
+    logger.log(`Generating tokens with refresh expiresIn: ${refreshExpiresIn}s (${refreshExpiresIn / 86400} days)`);
+
     const accessToken = this.jwtService.sign(payload, {
-      expiresIn: this.configService.get('JWT_EXPIRATION', '3600'),
+      expiresIn: accessExpiresIn,
     });
 
     const refreshToken = this.jwtService.sign(payload, {
       secret: this.configService.get('JWT_REFRESH_SECRET'),
-      expiresIn: this.configService.get('JWT_REFRESH_EXPIRATION', '604800'),
+      expiresIn: refreshExpiresIn,
     });
 
     return { accessToken, refreshToken };
