@@ -16,6 +16,8 @@
     "start:development": "NODE_ENV=development nest start --watch",
     "start:production": "NODE_ENV=production node dist/main",
     "build:prod": "NODE_ENV=production nest build",
+    "migrate:dev": "npx prisma migrate dev",
+    "migrate:deploy": "npx prisma migrate deploy",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",
