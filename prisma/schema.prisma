@@ -23,6 +23,7 @@ model User {
   providerId      String?
   isVerified      Boolean        @default(false)
   verificationToken String?
+  verificationTokenExpires DateTime?
   resetPasswordToken String?
   resetPasswordExpires DateTime?
   createdAt       DateTime       @default(now())

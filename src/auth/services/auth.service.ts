@@ -36,17 +36,33 @@ export class AuthService {
         firstName: registerDto.firstName,
         lastName: registerDto.lastName,
         verificationToken,
+        verificationTokenExpires: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
       },
     });
 
     await this.emailService.sendVerificationEmail(user, verificationToken);
 
-    const tokens = await this.generateTokens(user);
+    return { message: 'User registered successfully. Please check your email to verify your account.' };
+  }
 
-    return {
-      ...tokens,
-      user: this.sanitizeUser(user),
-    };
+  async resendVerification(email: string) {
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      return { message: 'If an account exists, a verification email will be sent' };
+    }
+    if (user.isVerified) {
+      throw new BadRequestException('Email is already verified');
+    }
+    const verificationToken = uuidv4();
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        verificationToken,
+        verificationTokenExpires: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      },
+    });
+    await this.emailService.sendVerificationEmail(user, verificationToken);
+    return { message: 'If an account exists, a verification email will be sent' };
   }
 
   async login(loginDto: LoginDto) {
@@ -85,11 +101,16 @@ export class AuthService {
       throw new BadRequestException('Invalid verification token');
     }
 
+    if (user.verificationTokenExpires && user.verificationTokenExpires < new Date()) {
+      throw new BadRequestException('Verification token has expired');
+    }
+
     await this.prisma.user.update({
       where: { id: user.id },
       data: {
         isVerified: true,
         verificationToken: null,
+        verificationTokenExpires: null,
       },
     });
 
