@@ -27,7 +27,6 @@ export class AuthService {
     }
 
     const hashedPassword = await bcrypt.hash(registerDto.password, 12);
-    const verificationToken = uuidv4();
 
     const user = await this.prisma.user.create({
       data: {
@@ -35,14 +34,11 @@ export class AuthService {
         password: hashedPassword,
         firstName: registerDto.firstName,
         lastName: registerDto.lastName,
-        verificationToken,
-        verificationTokenExpires: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+        isVerified: true,
       },
     });
 
-    await this.emailService.sendVerificationEmail(user, verificationToken);
-
-    return { message: 'User registered successfully. Please check your email to verify your account.' };
+    return { message: 'User registered successfully. You can now log in.' };
   }
 
   async resendVerification(email: string) {
@@ -78,10 +74,6 @@ export class AuthService {
 
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
-    }
-
-    if (!user.isVerified) {
-      throw new UnauthorizedException('Please verify your email first');
     }
 
     const tokens = await this.generateTokens(user);
