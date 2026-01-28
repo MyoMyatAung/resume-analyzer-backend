@@ -17,7 +17,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class AnalysisController {
-  constructor(private analysisService: AnalysisService) {}
+  constructor(private analysisService: AnalysisService) { }
 
   @Post('match')
   @ApiOperation({ summary: 'Match resume with job description and get analysis' })
@@ -39,5 +39,14 @@ export class AnalysisController {
     @Body('resumeId') resumeId: string,
   ) {
     return this.analysisService.analyzeResumeQuality(userId, resumeId);
+  }
+
+  @Get('status/:analysisId')
+  @ApiOperation({ summary: 'Get analysis status and results' })
+  async getAnalysisStatus(
+    @CurrentUser('id') userId: string,
+    @Param('analysisId', ParseUUIDPipe) analysisId: string,
+  ) {
+    return this.analysisService.getAnalysisStatus(userId, analysisId);
   }
 }

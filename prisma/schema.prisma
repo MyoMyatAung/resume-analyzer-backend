@@ -7,92 +7,112 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum UserProvider {
-  LOCAL
-  GOOGLE
-  GITHUB
-}
-
 model User {
-  id              String         @id @default(uuid())
-  email           String         @unique
-  password        String?
-  firstName       String
-  lastName        String
-  provider        UserProvider   @default(LOCAL)
-  providerId      String?
-  isVerified      Boolean        @default(false)
-  verificationToken String?
+  id                       String           @id @default(uuid())
+  email                    String           @unique
+  password                 String?
+  firstName                String
+  lastName                 String
+  provider                 UserProvider     @default(LOCAL)
+  providerId               String?
+  isVerified               Boolean          @default(false)
+  verificationToken        String?
+  resetPasswordToken       String?
+  resetPasswordExpires     DateTime?
+  createdAt                DateTime         @default(now())
+  updatedAt                DateTime         @updatedAt
   verificationTokenExpires DateTime?
-  resetPasswordToken String?
-  resetPasswordExpires DateTime?
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-
-  resumes         Resume[]
-  jobs            JobDescription[]
-  analysisResults AnalysisResult[]
+  analysisResults          AnalysisResult[]
+  jobs                     JobDescription[]
+  resumes                  Resume[]
+  feedbacks                Feedback[]
 
   @@index([email])
 }
 
 model Resume {
-  id              String         @id @default(uuid())
-  userId          String
-  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  fileName        String
-  fileUrl         String
-  fileKey         String
-  fileSize        Int
-  mimeType        String
-  extractedText   String?        @db.Text
-  version         Int            @default(1)
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-
-  analyses        AnalysisResult[]
+  id            String           @id @default(uuid())
+  userId        String
+  fileName      String
+  fileUrl       String
+  fileKey       String
+  fileSize      Int
+  mimeType      String
+  extractedText String?
+  version       Int              @default(1)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  analyses      AnalysisResult[]
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([createdAt])
 }
 
 model JobDescription {
-  id              String         @id @default(uuid())
-  userId          String
-  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title           String
-  company         String
-  description     String         @db.Text
-  location        String?
-  salary          String?
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-
-  analyses        AnalysisResult[]
+  id          String           @id @default(uuid())
+  userId      String
+  title       String
+  company     String
+  description String
+  location    String?
+  salary      String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  analyses    AnalysisResult[]
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([createdAt])
 }
 
 model AnalysisResult {
-  id              String         @id @default(uuid())
+  id              String          @id @default(uuid())
   userId          String
-  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   resumeId        String
-  resume          Resume         @relation(fields: [resumeId], references: [id], onDelete: Cascade)
-  jobId           String
-  job             JobDescription @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  
-  matchScore      Float
-  matchedSkills   String[]       @default([])
-  missingSkills   String[]       @default([])
+  jobId           String?
+  matchScore      Float?
+  matchedSkills   String[]        @default([])
+  missingSkills   String[]        @default([])
   experienceMatch String?
-  recommendations String         @db.Text
-  summary         String         @db.Text
-  
-  createdAt       DateTime       @default(now())
+  recommendations String?
+  summary         String?
+  createdAt       DateTime        @default(now())
+  error           String?
+  gaps            Json?
+  qualityScores   Json?
+  status          AnalysisStatus  @default(PROCESSING)
+  suggestions     Json?
+  updatedAt       DateTime        @default(now())
+  job             JobDescription? @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  resume          Resume          @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([resumeId])
   @@index([jobId])
+}
+
+enum UserProvider {
+  LOCAL
+  GOOGLE
+  GITHUB
+}
+
+enum AnalysisStatus {
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model Feedback {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rating    Int
+  category  String
+  comment   String   @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
