@@ -6,7 +6,10 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  app.setGlobalPrefix('api');
+  // Set global prefix but exclude health check endpoint for Railway/Docker health checks
+  app.setGlobalPrefix('api', {
+    exclude: ['health'],
+  });
 
   app.useGlobalPipes(
     new ValidationPipe({
