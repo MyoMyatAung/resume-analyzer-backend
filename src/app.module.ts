@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import configuration from './config/configuration';
+import { AppController } from './app.controller';
 import { PrismaModule } from './config/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
@@ -54,6 +55,7 @@ import { QueueModule } from './queue/queue.module';
     FeedbackModule,
     QueueModule,
   ],
+  controllers: [AppController],
   providers: [
     {
       provide: APP_GUARD,

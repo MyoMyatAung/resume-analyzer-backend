@@ -27,8 +27,8 @@ RUN rm -rf node_modules/.prisma && npx prisma generate
 
 EXPOSE 3000
 
-# Health check
+# Health check using the lightweight /health endpoint
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:3000/api/docs || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1
 
 CMD ["node", "dist/main.js"]
