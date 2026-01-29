@@ -2,6 +2,7 @@ import {
   Controller,
   Post,
   Get,
+  Delete,
   Body,
   Param,
   UseGuards,
@@ -18,6 +19,12 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 @ApiBearerAuth()
 export class AnalysisController {
   constructor(private analysisService: AnalysisService) { }
+
+  @Get()
+  @ApiOperation({ summary: 'Get all analyses for the current user' })
+  async getUserAnalyses(@CurrentUser('id') userId: string) {
+    return this.analysisService.getUserAnalyses(userId);
+  }
 
   @Post('match')
   @ApiOperation({ summary: 'Match resume with job description and get analysis' })
@@ -48,5 +55,14 @@ export class AnalysisController {
     @Param('analysisId', ParseUUIDPipe) analysisId: string,
   ) {
     return this.analysisService.getAnalysisStatus(userId, analysisId);
+  }
+
+  @Delete(':analysisId')
+  @ApiOperation({ summary: 'Delete an analysis' })
+  async deleteAnalysis(
+    @CurrentUser('id') userId: string,
+    @Param('analysisId', ParseUUIDPipe) analysisId: string,
+  ) {
+    return this.analysisService.deleteAnalysis(userId, analysisId);
   }
 }

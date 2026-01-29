@@ -162,6 +162,12 @@ export class AnalysisService {
       where: { id: analysisId },
       include: {
         job: true,
+        resume: {
+          select: {
+            id: true,
+            fileName: true,
+          },
+        },
       },
     });
 
@@ -174,5 +180,49 @@ export class AnalysisService {
     }
 
     return analysis;
+  }
+
+  async getUserAnalyses(userId: string) {
+    const analyses = await this.prisma.analysisResult.findMany({
+      where: { userId },
+      include: {
+        resume: {
+          select: {
+            id: true,
+            fileName: true,
+          },
+        },
+        job: {
+          select: {
+            id: true,
+            title: true,
+            company: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return analyses;
+  }
+
+  async deleteAnalysis(userId: string, analysisId: string) {
+    const analysis = await this.prisma.analysisResult.findUnique({
+      where: { id: analysisId },
+    });
+
+    if (!analysis) {
+      throw new NotFoundException('Analysis not found');
+    }
+
+    if (analysis.userId !== userId) {
+      throw new ForbiddenException('Not authorized to delete this analysis');
+    }
+
+    await this.prisma.analysisResult.delete({
+      where: { id: analysisId },
+    });
+
+    return { success: true, message: 'Analysis deleted successfully' };
   }
 }
