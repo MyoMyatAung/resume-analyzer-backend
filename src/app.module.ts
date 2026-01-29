@@ -11,6 +11,8 @@ import { JobsModule } from './jobs/jobs.module';
 import { AnalysisModule } from './analysis/analysis.module';
 import { StorageModule } from './storage/storage.module';
 import { EmailModule } from './email/email.module';
+import { FeedbackModule } from './feedback/feedback.module';
+import { QueueModule } from './queue/queue.module';
 
 @Module({
   imports: [
@@ -49,6 +51,8 @@ import { EmailModule } from './email/email.module';
     AnalysisModule,
     StorageModule,
     EmailModule,
+    FeedbackModule,
+    QueueModule,
   ],
   providers: [
     {
@@ -57,4 +61,4 @@ import { EmailModule } from './email/email.module';
     },
   ],
 })
-export class AppModule {}
+export class AppModule { }
