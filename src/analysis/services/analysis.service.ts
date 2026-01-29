@@ -2,7 +2,8 @@ import { Injectable, Logger, NotFoundException, ForbiddenException } from '@nest
 import { PrismaService } from '../../config/prisma.service';
 import { OpenAIService } from './openai.service';
 import { StorageService } from '../../storage/services/storage.service';
-import { AnalysisResult } from './openai.service';
+import { QueueService } from '../../queue/queue.service';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class AnalysisService {
@@ -12,7 +13,8 @@ export class AnalysisService {
     private prisma: PrismaService,
     private openaiService: OpenAIService,
     private storageService: StorageService,
-  ) {}
+    private queueService: QueueService,
+  ) { }
 
   async matchResumeToJob(
     userId: string,
@@ -36,8 +38,9 @@ export class AnalysisService {
       throw new ForbiddenException('Not authorized to access these resources');
     }
 
-    this.logger.log(`Matching resume ${resumeId} to job ${jobId}`);
+    this.logger.log(`Queuing resume ${resumeId} to job ${jobId} match`);
 
+    // Extract resume text if not already done
     let resumeText = resume.extractedText;
     if (!resumeText || resumeText.length < 50) {
       try {
@@ -46,7 +49,7 @@ export class AnalysisService {
           fileContent,
           resume.mimeType,
         );
-        
+
         if (resumeText && resumeText.length > 50) {
           await this.prisma.resume.update({
             where: { id: resumeId },
@@ -64,26 +67,31 @@ export class AnalysisService {
 
     const jobText = `${job.title} at ${job.company}\n\n${job.description}`;
 
-    const analysisResult: AnalysisResult = await this.openaiService.matchResumeToJob(
+    // Create analysis result record with PROCESSING status
+    const analysisResult = await this.prisma.analysisResult.create({
+      data: {
+        userId,
+        resumeId,
+        jobId,
+        status: 'PROCESSING',
+      },
+    });
+
+    // Queue the job for async processing
+    await this.queueService.addAnalysisJob({
+      jobId: analysisResult.id,
       resumeText,
-      jobText,
-    );
+      jobDescription: jobText,
+      userId,
+      resumeId,
+      jobDescriptionId: jobId,
+      type: 'match',
+    });
 
     return {
-      resumeId: resume.id,
-      fileName: resume.fileName,
-      jobId: job.id,
-      jobTitle: job.title,
-      company: job.company,
-      matchScore: analysisResult.matchScore,
-      matchedSkills: analysisResult.matchedSkills,
-      missingSkills: analysisResult.missingSkills,
-      experienceMatch: analysisResult.experienceMatch,
-      recommendations: analysisResult.recommendations,
-      summary: analysisResult.summary,
-      quality: analysisResult.resumeQuality,
-      gaps: analysisResult.gapDetection,
-      suggestions: analysisResult.suggestions,
+      status: 'queued',
+      analysisId: analysisResult.id,
+      message: 'Analysis job has been queued. Check back for results.',
     };
   }
 
@@ -100,8 +108,9 @@ export class AnalysisService {
       throw new ForbiddenException('Not authorized to access this resume');
     }
 
-    this.logger.log(`Analyzing resume quality ${resumeId}, file: ${resume.fileName}`);
+    this.logger.log(`Queuing resume quality analysis ${resumeId}`);
 
+    // Extract resume text if not already done
     let resumeText = resume.extractedText;
     if (!resumeText || resumeText.length < 50) {
       try {
@@ -110,7 +119,7 @@ export class AnalysisService {
           fileContent,
           resume.mimeType,
         );
-        
+
         if (resumeText && resumeText.length > 50) {
           await this.prisma.resume.update({
             where: { id: resumeId },
@@ -123,14 +132,47 @@ export class AnalysisService {
       }
     }
 
-    const qualityAnalysis = await this.openaiService.analyzeResumeQuality(resumeText);
+    // Create analysis result record with PROCESSING status
+    const analysisResult = await this.prisma.analysisResult.create({
+      data: {
+        userId,
+        resumeId,
+        status: 'PROCESSING',
+      },
+    });
+
+    // Queue the job for async processing
+    await this.queueService.addAnalysisJob({
+      jobId: analysisResult.id,
+      resumeText,
+      userId,
+      resumeId,
+      type: 'quality',
+    });
 
     return {
-      resumeId: resume.id,
-      fileName: resume.fileName,
-      quality: qualityAnalysis.quality,
-      gaps: qualityAnalysis.gaps,
-      suggestions: qualityAnalysis.suggestions,
+      status: 'queued',
+      analysisId: analysisResult.id,
+      message: 'Quality analysis job has been queued. Check back for results.',
     };
+  }
+
+  async getAnalysisStatus(userId: string, analysisId: string) {
+    const analysis = await this.prisma.analysisResult.findUnique({
+      where: { id: analysisId },
+      include: {
+        job: true,
+      },
+    });
+
+    if (!analysis) {
+      throw new NotFoundException('Analysis not found');
+    }
+
+    if (analysis.userId !== userId) {
+      throw new ForbiddenException('Not authorized to access this analysis');
+    }
+
+    return analysis;
   }
 }
