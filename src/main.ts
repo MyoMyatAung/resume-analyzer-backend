@@ -24,10 +24,11 @@ async function bootstrap() {
 
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
   const adminUrl = process.env.ADMIN_URL || 'http://localhost:5174';
+  const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
   const allowedOrigins = [
     frontendUrl,
     adminUrl,
-    'http://localhost:3000', // Backend itself (for Swagger UI)
+    backendUrl, // Backend itself (for Swagger UI)
     'http://localhost:5173', // Vite default dev port (frontend)
     'http://localhost:5174', // Vite admin panel dev port
     'http://localhost:4173', // Vite preview port
@@ -38,7 +39,7 @@ async function bootstrap() {
     origin: function (origin, callback) {
       // Allow requests with no origin (like mobile apps or curl requests)
       if (!origin) return callback(null, true);
-      
+
       if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
