@@ -13,6 +13,23 @@ export interface AnalysisJobData {
   type: 'match' | 'quality';
 }
 
+export interface MatchJobData {
+  analysisId: string;
+  userId: string;
+  resumeId: string;
+  resumeText: string;
+  jobDescription: string;
+  jobTitle: string;
+  jobCompany: string;
+}
+
+export interface QualityJobData {
+  analysisId: string;
+  userId: string;
+  resumeId: string;
+  resumeText: string;
+}
+
 @Injectable()
 export class QueueService implements OnModuleDestroy {
   private readonly logger = new Logger(QueueService.name);
@@ -48,6 +65,68 @@ export class QueueService implements OnModuleDestroy {
     });
     this.logger.log(`Job ${job.id} added to queue`);
     return job.id!;
+  }
+
+  async addMatchJob(data: MatchJobData): Promise<string> {
+    const job = await this.queue.add('analyze', {
+      jobId: data.analysisId,
+      resumeText: data.resumeText,
+      jobDescription: data.jobDescription,
+      userId: data.userId,
+      resumeId: data.resumeId,
+      type: 'match',
+    }, {
+      jobId: data.analysisId,
+      removeOnComplete: 100,
+      removeOnFail: 100,
+    });
+    this.logger.log(`Match job ${job.id} added to queue`);
+    return job.id!;
+  }
+
+  async addQualityJob(data: QualityJobData): Promise<string> {
+    const job = await this.queue.add('analyze', {
+      jobId: data.analysisId,
+      resumeText: data.resumeText,
+      userId: data.userId,
+      resumeId: data.resumeId,
+      type: 'quality',
+    }, {
+      jobId: data.analysisId,
+      removeOnComplete: 100,
+      removeOnFail: 100,
+    });
+    this.logger.log(`Quality job ${job.id} added to queue`);
+    return job.id!;
+  }
+
+  async getQueueStatus(): Promise<{
+    waiting: number;
+    active: number;
+    completed: number;
+    failed: number;
+    delayed: number;
+  }> {
+    const [waiting, active, completed, failed, delayed] = await Promise.all([
+      this.queue.getWaitingCount(),
+      this.queue.getActiveCount(),
+      this.queue.getCompletedCount(),
+      this.queue.getFailedCount(),
+      this.queue.getDelayedCount(),
+    ]);
+
+    return { waiting, active, completed, failed, delayed };
+  }
+
+  async clearFailedJobs(): Promise<number> {
+    const failed = await this.queue.getFailed();
+    let cleared = 0;
+    for (const job of failed) {
+      await job.remove();
+      cleared++;
+    }
+    this.logger.log(`Cleared ${cleared} failed jobs`);
+    return cleared;
   }
 
   async onModuleDestroy() {

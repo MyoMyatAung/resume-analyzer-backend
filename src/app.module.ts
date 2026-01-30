@@ -14,6 +14,7 @@ import { StorageModule } from './storage/storage.module';
 import { EmailModule } from './email/email.module';
 import { FeedbackModule } from './feedback/feedback.module';
 import { QueueModule } from './queue/queue.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { QueueModule } from './queue/queue.module';
     EmailModule,
     FeedbackModule,
     QueueModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [

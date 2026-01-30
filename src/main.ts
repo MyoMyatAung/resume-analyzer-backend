@@ -23,10 +23,15 @@ async function bootstrap() {
   );
 
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+  const adminUrl = process.env.ADMIN_URL || 'http://localhost:5174';
   const allowedOrigins = [
     frontendUrl,
-    'http://localhost:5173', // Vite default dev port
+    adminUrl,
+    'http://localhost:3000', // Backend itself (for Swagger UI)
+    'http://localhost:5173', // Vite default dev port (frontend)
+    'http://localhost:5174', // Vite admin panel dev port
     'http://localhost:4173', // Vite preview port
+    'http://localhost:4174', // Vite admin preview port
   ];
 
   app.enableCors({

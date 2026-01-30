@@ -16,6 +16,7 @@ model User {
   provider                 UserProvider     @default(LOCAL)
   providerId               String?
   isVerified               Boolean          @default(false)
+  isSuspended              Boolean          @default(false)
   verificationToken        String?
   resetPasswordToken       String?
   resetPasswordExpires     DateTime?
@@ -28,6 +29,7 @@ model User {
   feedbacks                Feedback[]
 
   @@index([email])
+  @@index([createdAt])
 }
 
 model Resume {
@@ -91,6 +93,8 @@ model AnalysisResult {
   @@index([userId])
   @@index([resumeId])
   @@index([jobId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 enum UserProvider {
@@ -106,13 +110,63 @@ enum AnalysisStatus {
 }
 
 model Feedback {
-  id        String   @id @default(uuid())
+  id        String         @id @default(uuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   rating    Int
   category  String
-  comment   String   @db.Text
-  createdAt DateTime @default(now())
+  comment   String         @db.Text
+  status    FeedbackStatus @default(PENDING)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
 
   @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum FeedbackStatus {
+  PENDING
+  REVIEWED
+  ADDRESSED
+}
+
+// Admin models
+model Admin {
+  id           String     @id @default(uuid())
+  email        String     @unique
+  password     String
+  firstName    String
+  lastName     String
+  role         AdminRole  @default(ADMIN)
+  isActive     Boolean    @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  auditLogs    AuditLog[]
+
+  @@index([email])
+}
+
+enum AdminRole {
+  ADMIN
+  SUPER_ADMIN
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  adminId     String?
+  admin       Admin?   @relation(fields: [adminId], references: [id], onDelete: SetNull)
+  action      String
+  targetType  String
+  targetId    String?
+  details     Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  @@index([adminId])
+  @@index([action])
+  @@index([targetType])
+  @@index([createdAt])
 }
