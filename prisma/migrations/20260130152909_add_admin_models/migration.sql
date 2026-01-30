@@ -12,7 +12,13 @@ CREATE TYPE "AdminRole" AS ENUM ('ADMIN', 'SUPER_ADMIN');
 
 -- AlterTable
 ALTER TABLE "Feedback" ADD COLUMN     "status" "FeedbackStatus" NOT NULL DEFAULT 'PENDING',
-ADD COLUMN     "updatedAt" TIMESTAMP(3) NOT NULL;
+ADD COLUMN     "updatedAt" TIMESTAMP(3);
+
+-- Set default value for existing rows
+UPDATE "Feedback" SET "updatedAt" = "createdAt" WHERE "updatedAt" IS NULL;
+
+-- Now make the column NOT NULL
+ALTER TABLE "Feedback" ALTER COLUMN "updatedAt" SET NOT NULL;
 
 -- AlterTable
 ALTER TABLE "User" ADD COLUMN     "isSuspended" BOOLEAN NOT NULL DEFAULT false;
