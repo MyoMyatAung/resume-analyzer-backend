@@ -17,7 +17,7 @@ export class AppController {
   @ApiResponse({ status: 200, description: 'Service is healthy' })
   health(): { status: string; timestamp: string } {
     return {
-      status: 'ok',
+      status: 'OK',
       timestamp: new Date().toISOString(),
     };
   }
