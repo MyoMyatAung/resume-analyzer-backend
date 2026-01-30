@@ -4,7 +4,6 @@
     "builder": "DOCKERFILE"
   },
   "deploy": {
-    "startCommand": "node dist/main.js",
     "healthcheckPath": "/api/docs",
     "healthcheckTimeout": 30
   }
