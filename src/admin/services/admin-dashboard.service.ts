@@ -3,7 +3,7 @@ import { PrismaService } from '../../config/prisma.service';
 
 @Injectable()
 export class AdminDashboardService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async getStats() {
     const now = new Date();
@@ -11,107 +11,88 @@ export class AdminDashboardService {
     const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
     const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-    const [
-      totalUsers,
-      activeUsers,
-      newUsersToday,
-      newUsersThisWeek,
-      newUsersThisMonth,
-      usersByProvider,
-      totalResumes,
-      resumesUploadedToday,
-      resumesUploadedThisWeek,
-      totalJobs,
-      jobsCreatedToday,
-      jobsCreatedThisWeek,
-      totalAnalyses,
-      completedAnalyses,
-      failedAnalyses,
-      processingAnalyses,
-      analysesToday,
-      analysesWithScore,
-      totalFeedback,
-      feedbackWithRating,
-      pendingFeedback,
-    ] = await Promise.all([
-      // User stats
-      this.prisma.user.count(),
-      this.prisma.user.count({ where: { isSuspended: false } }),
-      this.prisma.user.count({ where: { createdAt: { gte: today } } }),
-      this.prisma.user.count({ where: { createdAt: { gte: weekAgo } } }),
-      this.prisma.user.count({ where: { createdAt: { gte: monthAgo } } }),
+    const [generalStats, usersByProvider, analysisStatusCounts] = await Promise.all([
+      this.prisma.$queryRaw<Array<any>>`
+        SELECT
+          (SELECT COUNT(*)::bigint FROM "User") as "totalUsers",
+          (SELECT COUNT(*)::bigint FROM "User" WHERE "isSuspended" = false) as "activeUsers",
+          (SELECT COUNT(*)::bigint FROM "User" WHERE "createdAt" >= ${today}) as "newUsersToday",
+          (SELECT COUNT(*)::bigint FROM "User" WHERE "createdAt" >= ${weekAgo}) as "newUsersThisWeek",
+          (SELECT COUNT(*)::bigint FROM "User" WHERE "createdAt" >= ${monthAgo}) as "newUsersThisMonth",
+          
+          (SELECT COUNT(*)::bigint FROM "Resume") as "totalResumes",
+          (SELECT COUNT(*)::bigint FROM "Resume" WHERE "createdAt" >= ${today}) as "resumesUploadedToday",
+          (SELECT COUNT(*)::bigint FROM "Resume" WHERE "createdAt" >= ${weekAgo}) as "resumesUploadedThisWeek",
+          
+          (SELECT COUNT(*)::bigint FROM "JobDescription") as "totalJobs",
+          (SELECT COUNT(*)::bigint FROM "JobDescription" WHERE "createdAt" >= ${today}) as "jobsCreatedToday",
+          (SELECT COUNT(*)::bigint FROM "JobDescription" WHERE "createdAt" >= ${weekAgo}) as "jobsCreatedThisWeek",
+          
+          (SELECT COUNT(*)::bigint FROM "AnalysisResult") as "totalAnalyses",
+          (SELECT COUNT(*)::bigint FROM "AnalysisResult" WHERE "createdAt" >= ${today}) as "analysesToday",
+          (SELECT AVG("matchScore") FROM "AnalysisResult" WHERE "matchScore" IS NOT NULL) as "averageMatchScore",
+          
+          (SELECT COUNT(*)::bigint FROM "Feedback") as "totalFeedback",
+          (SELECT AVG("rating") FROM "Feedback") as "averageFeedbackRating",
+          (SELECT COUNT(*)::bigint FROM "Feedback" WHERE "status" = 'PENDING') as "pendingFeedback"
+      `,
       this.prisma.user.groupBy({
         by: ['provider'],
         _count: { provider: true },
       }),
-
-      // Resume stats
-      this.prisma.resume.count(),
-      this.prisma.resume.count({ where: { createdAt: { gte: today } } }),
-      this.prisma.resume.count({ where: { createdAt: { gte: weekAgo } } }),
-
-      // Job stats
-      this.prisma.jobDescription.count(),
-      this.prisma.jobDescription.count({ where: { createdAt: { gte: today } } }),
-      this.prisma.jobDescription.count({ where: { createdAt: { gte: weekAgo } } }),
-
-      // Analysis stats
-      this.prisma.analysisResult.count(),
-      this.prisma.analysisResult.count({ where: { status: 'COMPLETED' } }),
-      this.prisma.analysisResult.count({ where: { status: 'FAILED' } }),
-      this.prisma.analysisResult.count({ where: { status: 'PROCESSING' } }),
-      this.prisma.analysisResult.count({ where: { createdAt: { gte: today } } }),
-      this.prisma.analysisResult.aggregate({
-        where: { matchScore: { not: null } },
-        _avg: { matchScore: true },
+      this.prisma.analysisResult.groupBy({
+        by: ['status'],
+        _count: { status: true },
       }),
-
-      // Feedback stats
-      this.prisma.feedback.count(),
-      this.prisma.feedback.aggregate({ _avg: { rating: true } }),
-      this.prisma.feedback.count({ where: { status: 'PENDING' } }),
     ]);
+
+    const stats = generalStats[0];
+
+    const statusMap = analysisStatusCounts.reduce((acc, curr) => {
+      acc[curr.status] = curr._count.status;
+      return acc;
+    }, {} as Record<string, number>);
 
     return {
       users: {
-        total: totalUsers,
-        active: activeUsers,
-        newToday: newUsersToday,
-        newThisWeek: newUsersThisWeek,
-        newThisMonth: newUsersThisMonth,
+        total: Number(stats.totalUsers),
+        active: Number(stats.activeUsers),
+        newToday: Number(stats.newUsersToday),
+        newThisWeek: Number(stats.newUsersThisWeek),
+        newThisMonth: Number(stats.newUsersThisMonth),
         byProvider: usersByProvider.map((p) => ({
           provider: p.provider,
           count: p._count.provider,
         })),
       },
       resumes: {
-        total: totalResumes,
-        uploadedToday: resumesUploadedToday,
-        uploadedThisWeek: resumesUploadedThisWeek,
+        total: Number(stats.totalResumes),
+        uploadedToday: Number(stats.resumesUploadedToday),
+        uploadedThisWeek: Number(stats.resumesUploadedThisWeek),
       },
       jobs: {
-        total: totalJobs,
-        createdToday: jobsCreatedToday,
-        createdThisWeek: jobsCreatedThisWeek,
+        total: Number(stats.totalJobs),
+        createdToday: Number(stats.jobsCreatedToday),
+        createdThisWeek: Number(stats.jobsCreatedThisWeek),
       },
       analyses: {
-        total: totalAnalyses,
-        completed: completedAnalyses,
-        failed: failedAnalyses,
-        processing: processingAnalyses,
-        todayCount: analysesToday,
-        averageMatchScore: analysesWithScore._avg.matchScore || 0,
+        total: Number(stats.totalAnalyses),
+        completed: statusMap['COMPLETED'] || 0,
+        failed: statusMap['FAILED'] || 0,
+        processing: statusMap['PROCESSING'] || 0,
+        todayCount: Number(stats.analysesToday),
+        averageMatchScore: Number(stats.averageMatchScore) || 0,
       },
       feedback: {
-        total: totalFeedback,
-        averageRating: feedbackWithRating._avg.rating || 0,
-        pendingCount: pendingFeedback,
+        total: Number(stats.totalFeedback),
+        averageRating: Number(stats.averageFeedbackRating) || 0,
+        pendingCount: Number(stats.pendingFeedback),
       },
       queue: {
-        waiting: 0, // Will be populated from queue service
-        active: processingAnalyses,
-        completed: completedAnalyses,
-        failed: failedAnalyses,
+        waiting: 0,
+        active: statusMap['PROCESSING'] || 0,
+        completed: statusMap['COMPLETED'] || 0,
+        failed: statusMap['FAILED'] || 0,
       },
     };
   }
@@ -121,37 +102,35 @@ export class AdminDashboardService {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
-    // Get daily user registrations
-    const userGrowth = await this.prisma.$queryRaw<Array<{ date: string; count: bigint }>>`
-      SELECT DATE("createdAt") as date, COUNT(*) as count
-      FROM "User"
-      WHERE "createdAt" >= ${startDate}
-      GROUP BY DATE("createdAt")
-      ORDER BY date ASC
-    `;
-
-    // Get daily analysis volume
-    const analysisVolume = await this.prisma.$queryRaw<Array<{ date: string; count: bigint }>>`
-      SELECT DATE("createdAt") as date, COUNT(*) as count
-      FROM "AnalysisResult"
-      WHERE "createdAt" >= ${startDate}
-      GROUP BY DATE("createdAt")
-      ORDER BY date ASC
-    `;
-
-    // Get daily success rate
-    const successRate = await this.prisma.$queryRaw<
-      Array<{ date: string; total: bigint; completed: bigint }>
-    >`
-      SELECT 
-        DATE("createdAt") as date, 
-        COUNT(*) as total,
-        SUM(CASE WHEN status = 'COMPLETED' THEN 1 ELSE 0 END) as completed
-      FROM "AnalysisResult"
-      WHERE "createdAt" >= ${startDate}
-      GROUP BY DATE("createdAt")
-      ORDER BY date ASC
-    `;
+    // Optimized raw queries using date_trunc for PostgreSQL
+    const [userGrowth, analysisVolume, successRate] = await Promise.all([
+      this.prisma.$queryRaw<Array<{ date: Date; count: bigint }>>`
+        SELECT date_trunc('day', "createdAt") as date, COUNT(*)::bigint as count
+        FROM "User"
+        WHERE "createdAt" >= ${startDate}
+        GROUP BY date_trunc('day', "createdAt")
+        ORDER BY date ASC
+      `,
+      this.prisma.$queryRaw<Array<{ date: Date; count: bigint }>>`
+        SELECT date_trunc('day', "createdAt") as date, COUNT(*)::bigint as count
+        FROM "AnalysisResult"
+        WHERE "createdAt" >= ${startDate}
+        GROUP BY date_trunc('day', "createdAt")
+        ORDER BY date ASC
+      `,
+      this.prisma.$queryRaw<
+        Array<{ date: Date; total: bigint; completed: bigint }>
+      >`
+        SELECT 
+          date_trunc('day', "createdAt") as date, 
+          COUNT(*)::bigint as total,
+          SUM(CASE WHEN status = 'COMPLETED' THEN 1 ELSE 0 END)::bigint as completed
+        FROM "AnalysisResult"
+        WHERE "createdAt" >= ${startDate}
+        GROUP BY date_trunc('day', "createdAt")
+        ORDER BY date ASC
+      `,
+    ]);
 
     return {
       userGrowth: userGrowth.map((r) => ({
