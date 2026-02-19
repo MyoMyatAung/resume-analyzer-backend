@@ -23,7 +23,7 @@ import {
 import { GeneratePDFDto } from '../dto/ai-generate.dto';
 import { ResumeData, DEFAULT_SKILLS } from '../interfaces';
 import { v4 as uuidv4 } from 'uuid';
-import { PDFStatus, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 
 const MAX_RESUMES_PER_USER = 3;
 const PDF_EXPIRATION_DAYS = 90;
