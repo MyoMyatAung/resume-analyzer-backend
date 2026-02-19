@@ -18,15 +18,17 @@ export class AnalysisService {
 
   async matchResumeToJob(
     userId: string,
-    resumeId: string,
+    resumeId: string | undefined,
     jobId: string,
+    generatedResumeId?: string,
   ): Promise<any> {
-    const [resume, job] = await Promise.all([
-      this.prisma.resume.findUnique({ where: { id: resumeId } }),
+    const [resume, generatedResume, job] = await Promise.all([
+      resumeId ? this.prisma.resume.findUnique({ where: { id: resumeId } }) : Promise.resolve(null),
+      generatedResumeId ? this.prisma.generatedResume.findUnique({ where: { id: generatedResumeId } }) : Promise.resolve(null),
       this.prisma.jobDescription.findUnique({ where: { id: jobId } }),
     ]);
 
-    if (!resume) {
+    if (!resume && !generatedResume) {
       throw new NotFoundException('Resume not found');
     }
 
@@ -34,35 +36,39 @@ export class AnalysisService {
       throw new NotFoundException('Job description not found');
     }
 
-    if (resume.userId !== userId || job.userId !== userId) {
+    if ((resume && resume.userId !== userId) || (generatedResume && generatedResume.userId !== userId) || job.userId !== userId) {
       throw new ForbiddenException('Not authorized to access these resources');
     }
 
-    this.logger.log(`Queuing resume ${resumeId} to job ${jobId} match`);
+    this.logger.log(`Queuing analysis for ${resumeId || generatedResumeId} with job ${jobId}`);
 
-    // Extract resume text if not already done
-    let resumeText = resume.extractedText;
-    if (!resumeText || resumeText.length < 50) {
-      try {
-        const fileContent = await this.storageService.getFile(resume.fileKey);
-        resumeText = await this.openaiService.extractTextFromResume(
-          fileContent,
-          resume.mimeType,
-        );
+    let resumeText = '';
+    if (resume) {
+      resumeText = resume.extractedText;
+      if (!resumeText || resumeText.length < 50) {
+        try {
+          const fileContent = await this.storageService.getFile(resume.fileKey);
+          resumeText = await this.openaiService.extractTextFromResume(
+            fileContent,
+            resume.mimeType,
+          );
 
-        if (resumeText && resumeText.length > 50) {
-          await this.prisma.resume.update({
-            where: { id: resumeId },
-            data: { extractedText: resumeText },
-          });
+          if (resumeText && resumeText.length > 50) {
+            await this.prisma.resume.update({
+              where: { id: resumeId },
+              data: { extractedText: resumeText },
+            });
+          }
+        } catch (error: any) {
+          this.logger.warn(`Could not extract text from resume: ${error.message}`);
         }
-      } catch (error: any) {
-        this.logger.warn(`Could not extract text from resume: ${error.message}`);
       }
+    } else if (generatedResume) {
+      resumeText = this.convertGeneratedResumeToText(generatedResume);
     }
 
     if (!resumeText || resumeText.length < 50) {
-      throw new Error('Unable to extract text from resume. Please upload a text-based PDF file.');
+      throw new Error('Unable to extract text from resume. Please ensure the resume has sufficient content.');
     }
 
     const jobText = `${job.title} at ${job.company}\n\n${job.description}`;
@@ -70,9 +76,10 @@ export class AnalysisService {
     // Create analysis result record with PROCESSING status
     const analysisResult = await this.prisma.analysisResult.create({
       data: {
-        userId,
-        resumeId,
-        jobId,
+        user: { connect: { id: userId } },
+        resume: resumeId ? { connect: { id: resumeId } } : undefined,
+        generatedResume: generatedResumeId ? { connect: { id: generatedResumeId } } : undefined,
+        job: { connect: { id: jobId } },
         status: 'PROCESSING',
       },
     });
@@ -83,7 +90,7 @@ export class AnalysisService {
       resumeText,
       jobDescription: jobText,
       userId,
-      resumeId,
+      resumeId: resumeId || generatedResumeId,
       jobDescriptionId: jobId,
       type: 'match',
     });
@@ -95,48 +102,54 @@ export class AnalysisService {
     };
   }
 
-  async analyzeResumeQuality(userId: string, resumeId: string) {
-    const resume = await this.prisma.resume.findUnique({
-      where: { id: resumeId },
-    });
+  async analyzeResumeQuality(userId: string, resumeId: string | undefined, generatedResumeId?: string) {
+    const [resume, generatedResume] = await Promise.all([
+      resumeId ? this.prisma.resume.findUnique({ where: { id: resumeId } }) : Promise.resolve(null),
+      generatedResumeId ? this.prisma.generatedResume.findUnique({ where: { id: generatedResumeId } }) : Promise.resolve(null),
+    ]);
 
-    if (!resume) {
+    if (!resume && !generatedResume) {
       throw new NotFoundException('Resume not found');
     }
 
-    if (resume.userId !== userId) {
+    if ((resume && resume.userId !== userId) || (generatedResume && generatedResume.userId !== userId)) {
       throw new ForbiddenException('Not authorized to access this resume');
     }
 
-    this.logger.log(`Queuing resume quality analysis ${resumeId}`);
+    this.logger.log(`Queuing quality analysis for ${resumeId || generatedResumeId}`);
 
-    // Extract resume text if not already done
-    let resumeText = resume.extractedText;
-    if (!resumeText || resumeText.length < 50) {
-      try {
-        const fileContent = await this.storageService.getFile(resume.fileKey);
-        resumeText = await this.openaiService.extractTextFromResume(
-          fileContent,
-          resume.mimeType,
-        );
+    let resumeText = '';
+    if (resume) {
+      resumeText = resume.extractedText;
+      if (!resumeText || resumeText.length < 50) {
+        try {
+          const fileContent = await this.storageService.getFile(resume.fileKey);
+          resumeText = await this.openaiService.extractTextFromResume(
+            fileContent,
+            resume.mimeType,
+          );
 
-        if (resumeText && resumeText.length > 50) {
-          await this.prisma.resume.update({
-            where: { id: resumeId },
-            data: { extractedText: resumeText },
-          });
+          if (resumeText && resumeText.length > 50) {
+            await this.prisma.resume.update({
+              where: { id: resumeId },
+              data: { extractedText: resumeText },
+            });
+          }
+        } catch (error: any) {
+          this.logger.warn(`Could not extract text from resume: ${error.message}`);
+          throw new Error(`Failed to extract text from resume: ${error.message}`);
         }
-      } catch (error: any) {
-        this.logger.warn(`Could not extract text from resume: ${error.message}`);
-        throw new Error(`Failed to extract text from resume: ${error.message}`);
       }
+    } else if (generatedResume) {
+      resumeText = this.convertGeneratedResumeToText(generatedResume);
     }
 
     // Create analysis result record with PROCESSING status
     const analysisResult = await this.prisma.analysisResult.create({
       data: {
-        userId,
-        resumeId,
+        user: { connect: { id: userId } },
+        resume: resumeId ? { connect: { id: resumeId } } : undefined,
+        generatedResume: generatedResumeId ? { connect: { id: generatedResumeId } } : undefined,
         status: 'PROCESSING',
       },
     });
@@ -146,7 +159,7 @@ export class AnalysisService {
       jobId: analysisResult.id,
       resumeText,
       userId,
-      resumeId,
+      resumeId: resumeId || generatedResumeId,
       type: 'quality',
     });
 
@@ -166,6 +179,12 @@ export class AnalysisService {
           select: {
             id: true,
             fileName: true,
+          },
+        },
+        generatedResume: {
+          select: {
+            id: true,
+            title: true,
           },
         },
       },
@@ -190,6 +209,12 @@ export class AnalysisService {
           select: {
             id: true,
             fileName: true,
+          },
+        },
+        generatedResume: {
+          select: {
+            id: true,
+            title: true,
           },
         },
         job: {
@@ -224,5 +249,63 @@ export class AnalysisService {
     });
 
     return { success: true, message: 'Analysis deleted successfully' };
+  }
+
+  private convertGeneratedResumeToText(resume: any): string {
+    const sections: string[] = [];
+
+    // Personal Info
+    sections.push(`${resume.fullName}`);
+    if (resume.targetTitle) sections.push(resume.targetTitle);
+    if (resume.email) sections.push(resume.email);
+    if (resume.phone) sections.push(resume.phone);
+    if (resume.location) sections.push(resume.location);
+    if (resume.summary) sections.push(`\nSUMMARY\n${resume.summary}`);
+
+    // Experiences
+    if (resume.experiences && Array.isArray(resume.experiences) && resume.experiences.length > 0) {
+      sections.push('\nEXPERIENCE');
+      resume.experiences.forEach((exp: any) => {
+        sections.push(`${exp.position} at ${exp.company}`);
+        sections.push(`${exp.startDate} - ${exp.endDate || 'Present'}`);
+        if (exp.description) sections.push(exp.description);
+        if (exp.achievements && Array.isArray(exp.achievements)) {
+          exp.achievements.forEach((ach: string) => sections.push(`• ${ach}`));
+        }
+      });
+    }
+
+    // Education
+    if (resume.education && Array.isArray(resume.education) && resume.education.length > 0) {
+      sections.push('\nEDUCATION');
+      resume.education.forEach((edu: any) => {
+        sections.push(`${edu.degree} in ${edu.field}`);
+        sections.push(`${edu.institution}`);
+        sections.push(`${edu.startDate} - ${edu.endDate || 'Present'}`);
+      });
+    }
+
+    // Skills
+    if (resume.skills) {
+      sections.push('\nSKILLS');
+      const skills = resume.skills;
+      if (skills.technical && Array.isArray(skills.technical)) sections.push(`Technical: ${skills.technical.join(', ')}`);
+      if (skills.tools && Array.isArray(skills.tools)) sections.push(`Tools: ${skills.tools.join(', ')}`);
+      if (skills.soft && Array.isArray(skills.soft)) sections.push(`Soft: ${skills.soft.join(', ')}`);
+    }
+
+    // Projects
+    if (resume.projects && Array.isArray(resume.projects) && resume.projects.length > 0) {
+      sections.push('\nPROJECTS');
+      resume.projects.forEach((proj: any) => {
+        sections.push(proj.name);
+        if (proj.description) sections.push(proj.description);
+        if (proj.highlights && Array.isArray(proj.highlights)) {
+          proj.highlights.forEach((h: string) => sections.push(`• ${h}`));
+        }
+      });
+    }
+
+    return sections.join('\n');
   }
 }

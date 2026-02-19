@@ -30,12 +30,13 @@ export class AnalysisController {
   @ApiOperation({ summary: 'Match resume with job description and get analysis' })
   async matchResumeToJob(
     @CurrentUser('id') userId: string,
-    @Body() body: { resumeId: string; jobId: string },
+    @Body() body: { resumeId?: string; generatedResumeId?: string; jobId: string },
   ) {
     return this.analysisService.matchResumeToJob(
       userId,
       body.resumeId,
       body.jobId,
+      body.generatedResumeId,
     );
   }
 
@@ -43,9 +44,9 @@ export class AnalysisController {
   @ApiOperation({ summary: 'Analyze resume quality (Skill Coverage, Experience Relevance, ATS Compatibility, Clarity & Structure)' })
   async analyzeResumeQuality(
     @CurrentUser('id') userId: string,
-    @Body('resumeId') resumeId: string,
+    @Body() body: { resumeId?: string; generatedResumeId?: string },
   ) {
-    return this.analysisService.analyzeResumeQuality(userId, resumeId);
+    return this.analysisService.analyzeResumeQuality(userId, body.resumeId, body.generatedResumeId);
   }
 
   @Get('status/:analysisId')
