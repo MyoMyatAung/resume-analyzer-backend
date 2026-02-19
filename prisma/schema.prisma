@@ -8,25 +8,26 @@ datasource db {
 }
 
 model User {
-  id                       String           @id @default(uuid())
-  email                    String           @unique
+  id                       String            @id @default(uuid())
+  email                    String            @unique
   password                 String?
   firstName                String
   lastName                 String
-  provider                 UserProvider     @default(LOCAL)
+  provider                 UserProvider      @default(LOCAL)
   providerId               String?
-  isVerified               Boolean          @default(false)
-  isSuspended              Boolean          @default(false)
+  isVerified               Boolean           @default(false)
+  isSuspended              Boolean           @default(false)
   verificationToken        String?
   resetPasswordToken       String?
   resetPasswordExpires     DateTime?
-  createdAt                DateTime         @default(now())
-  updatedAt                DateTime         @updatedAt
+  createdAt                DateTime          @default(now())
+  updatedAt                DateTime          @updatedAt
   verificationTokenExpires DateTime?
   analysisResults          AnalysisResult[]
   jobs                     JobDescription[]
   resumes                  Resume[]
   feedbacks                Feedback[]
+  generatedResumes         GeneratedResume[]
 
   @@index([email])
   @@index([createdAt])
@@ -69,29 +70,32 @@ model JobDescription {
 }
 
 model AnalysisResult {
-  id              String          @id @default(uuid())
+  id              String           @id @default(uuid())
   userId          String
-  resumeId        String
+  resumeId        String?
+  generatedResumeId String?
   jobId           String?
   matchScore      Float?
-  matchedSkills   String[]        @default([])
-  missingSkills   String[]        @default([])
+  matchedSkills   String[]         @default([])
+  missingSkills   String[]         @default([])
   experienceMatch String?
   recommendations String?
   summary         String?
-  createdAt       DateTime        @default(now())
+  createdAt       DateTime         @default(now())
   error           String?
   gaps            Json?
   qualityScores   Json?
-  status          AnalysisStatus  @default(PROCESSING)
+  status          AnalysisStatus   @default(PROCESSING)
   suggestions     Json?
-  updatedAt       DateTime        @default(now())
-  job             JobDescription? @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  resume          Resume          @relation(fields: [resumeId], references: [id], onDelete: Cascade)
-  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  updatedAt       DateTime         @default(now())
+  job             JobDescription?  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  resume          Resume?          @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+  generatedResume GeneratedResume? @relation(fields: [generatedResumeId], references: [id], onDelete: Cascade)
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([resumeId])
+  @@index([generatedResumeId])
   @@index([jobId])
   @@index([status])
   @@index([createdAt])
@@ -169,4 +173,79 @@ model AuditLog {
   @@index([action])
   @@index([targetType])
   @@index([createdAt])
+}
+
+// Resume Builder Models
+model GeneratedResume {
+  id          String    @id @default(uuid())
+  userId      String
+  title       String    // e.g., "Software Engineer Resume - Google"
+  templateId  String    // "ats-simple", "professional", "modern"
+  targetTitle String?   // e.g., "Senior Software Engineer"
+
+  // Personal Information
+  fullName    String
+  email       String
+  phone       String?
+  location    String?
+  linkedin    String?
+  github      String?
+  website     String?
+  summary     String?   @db.Text
+
+  // Structured sections (JSON)
+  experiences     Json   @default("[]")  // Array of experience objects
+  education       Json   @default("[]")  // Array of education objects
+  skills          Json   @default("{}")  // Categorized skills object
+  projects        Json   @default("[]")  // Array of project objects
+  certifications  Json   @default("[]")  // Array of certification objects
+
+  // PDF generation tracking
+  pdfUrl         String?
+  pdfKey         String?   // S3 key: resumes/generated/{userId}/{resumeId}.pdf
+  pdfStatus      PDFStatus @default(NOT_GENERATED)
+  pdfGeneratedAt DateTime?
+  pdfError       String?
+  pdfExpiresAt   DateTime? // 90 days from generation
+
+  // Metadata
+  isPublished Boolean  @default(false)
+  version     Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  analysisResults AnalysisResult[]
+
+  @@index([userId])
+  @@index([templateId])
+  @@index([pdfStatus])
+  @@index([pdfExpiresAt])
+  @@index([createdAt])
+}
+
+enum PDFStatus {
+  NOT_GENERATED
+  QUEUED
+  GENERATING
+  COMPLETED
+  FAILED
+}
+
+model ResumeTemplate {
+  id          String   @id @default(uuid())
+  templateKey String   @unique // "ats-simple", "professional", "modern"
+  name        String   // "ATS Simple", "Professional", "Modern"
+  description String   @db.Text
+  category    String   // "minimal", "traditional", "contemporary"
+  previewUrl  String   // URL to template preview image
+  isActive    Boolean  @default(true)
+  order       Int      @default(0)
+  features    String[] @default([]) // ["ATS-Optimized", "Single Column", etc.]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([templateKey])
+  @@index([isActive])
+  @@index([order])
 }

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
 import { APP_GUARD } from '@nestjs/core';
 import configuration from './config/configuration';
 import { AppController } from './app.controller';
@@ -15,6 +16,7 @@ import { EmailModule } from './email/email.module';
 import { FeedbackModule } from './feedback/feedback.module';
 import { QueueModule } from './queue/queue.module';
 import { AdminModule } from './admin/admin.module';
+import { ResumeBuilderModule } from './resume-builder/resume-builder.module';
 
 @Module({
   imports: [
@@ -45,6 +47,7 @@ import { AdminModule } from './admin/admin.module';
         limit: 1000,
       },
     ]),
+    ScheduleModule.forRoot(),
     PrismaModule,
     AuthModule,
     UsersModule,
@@ -56,6 +59,7 @@ import { AdminModule } from './admin/admin.module';
     FeedbackModule,
     QueueModule,
     AdminModule,
+    ResumeBuilderModule,
   ],
   controllers: [AppController],
   providers: [
