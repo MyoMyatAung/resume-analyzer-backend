@@ -3,22 +3,38 @@ import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { PrismaService } from '../../config/prisma.service';
 import { AnalysisGateway } from '../gateways/analysis.gateway';
 
+interface ResumeAnalysisResult {
+  summary: string;
+  quality: {
+    overallScore: number;
+    atsCompatibilityScore: number;
+    clarityStructureScore: number;
+    keywordOptimizationScore: number;
+    skillCoverageScore: number;
+  };
+  suggestions: {
+    strengths: string[];
+    improvements: string[];
+    quickTips: string[];
+  };
+  match?: {
+    overallMatchScore: number;
+    keywordGapScore: number;
+    atsCompatibilityScore: number;
+    skillCoverageScore: number;
+    matchedKeywords: string[];
+    missingKeywords: string[];
+    strengths: string[];
+    improvements: string[];
+    quickTips: string[];
+    summary: string;
+  };
+}
+
 interface WebhookPayload {
   jobId: string;
   status: 'success' | 'failed';
-  result?: {
-    summary?: string;
-    skills?: string[];
-    experienceYears?: number;
-    matchScore?: number;
-    suggestions?: string[];
-    matchedSkills?: string[];
-    missingSkills?: string[];
-    experienceMatch?: string;
-    recommendations?: string;
-    quality?: Record<string, unknown>;
-    gaps?: Record<string, unknown>;
-  };
+  result?: ResumeAnalysisResult;
   error?: string;
 }
 
@@ -50,7 +66,7 @@ export class WebhookController {
       }
 
       // Map new AI Result structure to database fields
-      const result = payload.result as any;
+      const result = payload.result;
       const isMatch = !!result?.match;
 
       // Update the analysis result
@@ -58,38 +74,38 @@ export class WebhookController {
         where: { id: payload.jobId },
         data: {
           status: payload.status === 'success' ? 'COMPLETED' : 'FAILED',
-          matchScore: isMatch ? result.match.overallMatchScore : null,
-          matchedSkills: isMatch ? result.match.matchedKeywords : [],
-          missingSkills: isMatch ? result.match.missingKeywords : [],
-          experienceMatch: isMatch ? result.match.strengths?.join('\n') : null, // Repurpose or keep null
-          recommendations: isMatch ? result.match.quickTips?.join('\n') : null,
-          summary: isMatch ? result.match.summary : result.summary,
+          matchScore: isMatch ? result.match!.overallMatchScore : null,
+          matchedSkills: isMatch ? result.match!.matchedKeywords : [],
+          missingSkills: isMatch ? result.match!.missingKeywords : [],
+          experienceMatch: isMatch ? result.match!.strengths?.join('\n') : null, // Repurpose or keep null
+          recommendations: isMatch ? result.match!.quickTips?.join('\n') : null,
+          summary: isMatch ? result.match!.summary : result?.summary,
           qualityScores: isMatch ? {
-            overall: result.match.overallMatchScore,
-            ats: result.match.atsCompatibilityScore,
-            skill: result.match.skillCoverageScore,
-            keyword: result.match.keywordGapScore,
+            overall: result.match!.overallMatchScore,
+            ats: result.match!.atsCompatibilityScore,
+            skill: result.match!.skillCoverageScore,
+            keyword: result.match!.keywordGapScore,
           } : {
-            overall: result.quality.overallScore,
-            ats: result.quality.atsCompatibilityScore,
-            clarity: result.quality.clarityStructureScore,
-            keyword: result.quality.keywordOptimizationScore,
-            skill: result.quality.skillCoverageScore,
+            overall: result?.quality.overallScore,
+            ats: result?.quality.atsCompatibilityScore,
+            clarity: result?.quality.clarityStructureScore,
+            keyword: result?.quality.keywordOptimizationScore,
+            skill: result?.quality.skillCoverageScore,
           },
           gaps: isMatch ? {
-            missingKeywords: result.match.missingKeywords,
-            improvements: result.match.improvements,
+            missingKeywords: result.match!.missingKeywords,
+            improvements: result.match!.improvements,
           } : {
-            improvements: result.suggestions.improvements,
+            improvements: result?.suggestions.improvements,
           },
           suggestions: isMatch ? {
-            strengths: result.match.strengths,
-            improvements: result.match.improvements,
-            quickTips: result.match.quickTips,
+            strengths: result.match!.strengths,
+            improvements: result.match!.improvements,
+            quickTips: result.match!.quickTips,
           } : {
-            strengths: result.suggestions.strengths,
-            improvements: result.suggestions.improvements,
-            quickTips: result.suggestions.quickTips,
+            strengths: result?.suggestions.strengths,
+            improvements: result?.suggestions.improvements,
+            quickTips: result?.suggestions.quickTips,
           },
           error: payload.error || null,
           updatedAt: new Date(),
