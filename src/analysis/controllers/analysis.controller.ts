@@ -7,6 +7,7 @@ import {
   Param,
   UseGuards,
   ParseUUIDPipe,
+  Query,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AnalysisService } from '../services/analysis.service';
@@ -22,8 +23,12 @@ export class AnalysisController {
 
   @Get()
   @ApiOperation({ summary: 'Get all analyses for the current user' })
-  async getUserAnalyses(@CurrentUser('id') userId: string) {
-    return this.analysisService.getUserAnalyses(userId);
+  async getUserAnalyses(
+    @CurrentUser('id') userId: string,
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+  ) {
+    return this.analysisService.getUserAnalyses(userId, Number(page), Number(limit));
   }
 
   @Post('match')

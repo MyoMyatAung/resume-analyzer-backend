@@ -201,34 +201,49 @@ export class AnalysisService {
     return analysis;
   }
 
-  async getUserAnalyses(userId: string) {
-    const analyses = await this.prisma.analysisResult.findMany({
-      where: { userId },
-      include: {
-        resume: {
-          select: {
-            id: true,
-            fileName: true,
-          },
-        },
-        generatedResume: {
-          select: {
-            id: true,
-            title: true,
-          },
-        },
-        job: {
-          select: {
-            id: true,
-            title: true,
-            company: true,
-          },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+  async getUserAnalyses(userId: string, page = 1, limit = 10) {
+    const skip = (page - 1) * limit;
 
-    return analyses;
+    const [analyses, total] = await Promise.all([
+      this.prisma.analysisResult.findMany({
+        where: { userId },
+        skip,
+        take: limit,
+        include: {
+          resume: {
+            select: {
+              id: true,
+              fileName: true,
+            },
+          },
+          generatedResume: {
+            select: {
+              id: true,
+              title: true,
+            },
+          },
+          job: {
+            select: {
+              id: true,
+              title: true,
+              company: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.analysisResult.count({ where: { userId } }),
+    ]);
+
+    return {
+      data: analyses,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 
   async deleteAnalysis(userId: string, analysisId: string) {
